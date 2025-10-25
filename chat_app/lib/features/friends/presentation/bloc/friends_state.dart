@@ -64,6 +64,90 @@ class FriendRequestAccepted extends FriendsState {}
 
 class FriendRequestRejected extends FriendsState {}
 
+class FriendRequestSending extends FriendsState {
+  final String userId;
+  
+  const FriendRequestSending(this.userId);
+  
+  @override
+  List<Object> get props => [userId];
+}
+
+class FriendRequestAccepting extends FriendsState {
+  final String requestId;
+  
+  const FriendRequestAccepting(this.requestId);
+  
+  @override
+  List<Object> get props => [requestId];
+}
+
+class FriendRequestRejecting extends FriendsState {
+  final String requestId;
+  
+  const FriendRequestRejecting(this.requestId);
+  
+  @override
+  List<Object> get props => [requestId];
+}
+
+class FriendsDataLoadedWithAction extends FriendsState {
+  final List<Map<String, dynamic>> friends;
+  final List<Map<String, dynamic>> friendRequests;
+  final List<Map<String, dynamic>> users;
+  final bool isFromCache;
+  final String? loadingUserId;
+  final String? loadingRequestId;
+  final String? actionType; 
+
+  const FriendsDataLoadedWithAction({
+    required this.friends,
+    required this.friendRequests,
+    required this.users,
+    this.isFromCache = false,
+    this.loadingUserId,
+    this.loadingRequestId,
+    this.actionType,
+  });
+
+  @override
+  List<Object> get props => [friends, friendRequests, users, isFromCache, loadingUserId ?? '', loadingRequestId ?? '', actionType ?? ''];
+}
+
+class UsersLoadedWithAction extends FriendsState {
+  final List<Map<String, dynamic>> users;
+  final bool isFromCache;
+  final String? loadingUserId;
+  final String? actionType;
+
+  const UsersLoadedWithAction({
+    required this.users,
+    this.isFromCache = false,
+    this.loadingUserId,
+    this.actionType,
+  });
+
+  @override
+  List<Object> get props => [users, isFromCache, loadingUserId ?? '', actionType ?? ''];
+}
+
+class FriendRequestsLoadedWithAction extends FriendsState {
+  final List<Map<String, dynamic>> friendRequests;
+  final bool isFromCache;
+  final String? loadingRequestId;
+  final String? actionType;
+
+  const FriendRequestsLoadedWithAction({
+    required this.friendRequests,
+    this.isFromCache = false,
+    this.loadingRequestId,
+    this.actionType,
+  });
+
+  @override
+  List<Object> get props => [friendRequests, isFromCache, loadingRequestId ?? '', actionType ?? ''];
+}
+
 class FriendRequestCancelled extends FriendsState {}
 
 class FriendsError extends FriendsState {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:chat_app/features/friends/domain/services/friends_service.dart';
@@ -136,27 +137,150 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
   }
 
   void _onSendFriendRequest(SendFriendRequestEvent event, Emitter<FriendsState> emit) async {
+    final currentState = state;
+    if (currentState is FriendsDataLoaded) {
+      emit(FriendsDataLoadedWithAction(
+        friends: currentState.friends,
+        friendRequests: currentState.friendRequests,
+        users: currentState.users,
+        isFromCache: currentState.isFromCache,
+        loadingUserId: event.toUserId,
+        actionType: 'sending',
+      ));
+    } else if (currentState is UsersLoaded) {
+      emit(UsersLoadedWithAction(
+        users: currentState.users,
+        isFromCache: currentState.isFromCache,
+        loadingUserId: event.toUserId,
+        actionType: 'sending',
+      ));
+    } else {
+      emit(FriendRequestSending(event.toUserId));
+    }
+    
     try {
-      await _friendsService.sendFriendRequest(event.toUserId);
-      emit(FriendRequestSent());
+      await _friendsService.sendFriendRequest(event.toUserId)
+          .timeout(const Duration(seconds: 10));
+      
+      if (currentState is FriendsDataLoaded) {
+        emit(FriendsDataLoaded(
+          friends: currentState.friends,
+          friendRequests: currentState.friendRequests,
+          users: currentState.users,
+          isFromCache: false,
+        ));
+      } else if (currentState is UsersLoaded) {
+        final usersStream = _friendsService.getUsersStream();
+        await emit.forEach(
+          usersStream,
+          onData: (users) => UsersLoaded(users, isFromCache: false),
+          onError: (error, _) => FriendsError(error.toString()),
+        );
+      } else {
+        emit(FriendRequestSent());
+      }
+    } on TimeoutException {
+      emit(const FriendsError('Request timed out. Please check your connection and try again.'));
     } catch (e) {
       emit(FriendsError(e.toString()));
     }
   }
 
   void _onAcceptFriendRequest(AcceptFriendRequestEvent event, Emitter<FriendsState> emit) async {
+    final currentState = state;
+    if (currentState is FriendsDataLoaded) {
+      emit(FriendsDataLoadedWithAction(
+        friends: currentState.friends,
+        friendRequests: currentState.friendRequests,
+        users: currentState.users,
+        isFromCache: currentState.isFromCache,
+        loadingRequestId: event.requestId,
+        actionType: 'accepting',
+      ));
+    } else if (currentState is FriendRequestsLoaded) {
+      emit(FriendRequestsLoadedWithAction(
+        friendRequests: currentState.friendRequests,
+        isFromCache: currentState.isFromCache,
+        loadingRequestId: event.requestId,
+        actionType: 'accepting',
+      ));
+    } else {
+      emit(FriendRequestAccepting(event.requestId));
+    }
+    
     try {
-      await _friendsService.acceptFriendRequest(event.requestId);
-      emit(FriendRequestAccepted());
+      await _friendsService.acceptFriendRequest(event.requestId)
+          .timeout(const Duration(seconds: 10));
+      
+      if (currentState is FriendsDataLoaded) {
+        emit(FriendsDataLoaded(
+          friends: currentState.friends,
+          friendRequests: currentState.friendRequests,
+          users: currentState.users,
+          isFromCache: false,
+        ));
+      } else if (currentState is FriendRequestsLoaded) {
+        final requestsStream = _friendsService.getFriendRequestsStream();
+        await emit.forEach(
+          requestsStream,
+          onData: (requests) => FriendRequestsLoaded(requests, isFromCache: false),
+          onError: (error, _) => FriendsError(error.toString()),
+        );
+      } else {
+        emit(FriendRequestAccepted());
+      }
+    } on TimeoutException {
+      emit(const FriendsError('Request timed out. Please check your connection and try again.'));
     } catch (e) {
       emit(FriendsError(e.toString()));
     }
   }
 
   void _onRejectFriendRequest(RejectFriendRequestEvent event, Emitter<FriendsState> emit) async {
+    final currentState = state;
+    if (currentState is FriendsDataLoaded) {
+      emit(FriendsDataLoadedWithAction(
+        friends: currentState.friends,
+        friendRequests: currentState.friendRequests,
+        users: currentState.users,
+        isFromCache: currentState.isFromCache,
+        loadingRequestId: event.requestId,
+        actionType: 'rejecting',
+      ));
+    } else if (currentState is FriendRequestsLoaded) {
+      emit(FriendRequestsLoadedWithAction(
+        friendRequests: currentState.friendRequests,
+        isFromCache: currentState.isFromCache,
+        loadingRequestId: event.requestId,
+        actionType: 'rejecting',
+      ));
+    } else {
+      emit(FriendRequestRejecting(event.requestId));
+    }
+    
     try {
-      await _friendsService.rejectFriendRequest(event.requestId);
-      emit(FriendRequestRejected());
+      await _friendsService.rejectFriendRequest(event.requestId)
+          .timeout(const Duration(seconds: 10));
+      
+      if (currentState is FriendsDataLoaded) {
+        emit(FriendsDataLoaded(
+          friends: currentState.friends,
+          friendRequests: currentState.friendRequests,
+          users: currentState.users,
+          isFromCache: false,
+        ));
+      } else if (currentState is FriendRequestsLoaded) {
+        final requestsStream = _friendsService.getFriendRequestsStream();
+        await emit.forEach(
+          requestsStream,
+          onData: (requests) => FriendRequestsLoaded(requests, isFromCache: false),
+          onError: (error, _) => FriendsError(error.toString()),
+        );
+      } else {
+        emit(FriendRequestRejected());
+      }
+    } on TimeoutException {
+      emit(const FriendsError('Request timed out. Please check your connection and try again.'));
     } catch (e) {
       emit(FriendsError(e.toString()));
     }

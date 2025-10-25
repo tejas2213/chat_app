@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/friends_bloc.dart';
+import '../widgets/loading_button_widget.dart';
+import '../widgets/error_retry_widget.dart';
 
 class FriendsView extends StatefulWidget {
   const FriendsView({super.key});
@@ -188,26 +190,18 @@ class _FriendsViewState extends State<FriendsView> with SingleTickerProviderStat
         } else if (state is FriendsDataLoaded) {
           final friends = state.friends;
           return _buildFriendsContent(friends, state.isFromCache);
+        } else if (state is FriendsDataLoadedWithAction) {
+          final friends = state.friends;
+          return _buildFriendsContent(friends, state.isFromCache);
         } else if (state is FriendsLoaded) {
           final friends = state.friends;
           return _buildFriendsContent(friends, state.isFromCache);
         } else if (state is FriendsError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('Error: ${state.message}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<FriendsBloc>().add(LoadFriendsEvent());
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+          return ErrorRetryWidget(
+            message: state.message,
+            onRetry: () {
+              context.read<FriendsBloc>().add(LoadFriendsEvent());
+            },
           );
         }
         return const Center(
@@ -277,26 +271,21 @@ class _FriendsViewState extends State<FriendsView> with SingleTickerProviderStat
         } else if (state is FriendsDataLoaded) {
           final requests = state.friendRequests;
           return _buildRequestsContent(requests, state.isFromCache);
+        } else if (state is FriendsDataLoadedWithAction) {
+          final requests = state.friendRequests;
+          return _buildRequestsContent(requests, state.isFromCache);
         } else if (state is FriendRequestsLoaded) {
           final requests = state.friendRequests;
           return _buildRequestsContent(requests, state.isFromCache);
+        } else if (state is FriendRequestsLoadedWithAction) {
+          final requests = state.friendRequests;
+          return _buildRequestsContent(requests, state.isFromCache);
         } else if (state is FriendsError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('Error: ${state.message}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<FriendsBloc>().add(LoadFriendRequestsEvent());
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+          return ErrorRetryWidget(
+            message: state.message,
+            onRetry: () {
+              context.read<FriendsBloc>().add(LoadFriendRequestsEvent());
+            },
           );
         }
         return const Center(
@@ -338,31 +327,58 @@ class _FriendsViewState extends State<FriendsView> with SingleTickerProviderStat
         }
 
         final user = snapshot.data!;
-        return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(user['name'] ?? user['phoneNumber']),
-          subtitle: Text(user['phoneNumber']),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.check, color: Colors.green),
-                onPressed: () {
-                  context.read<FriendsBloc>().add(
-                    AcceptFriendRequestEvent(request['id']),
-                  );
-                },
+        return BlocBuilder<FriendsBloc, FriendsState>(
+          builder: (context, state) {
+            bool isAccepting = false;
+            bool isRejecting = false;
+            
+            // Check for loading states in different state types
+            if (state is FriendRequestAccepting && state.requestId == request['id']) {
+              isAccepting = true;
+            } else if (state is FriendRequestRejecting && state.requestId == request['id']) {
+              isRejecting = true;
+            } else if (state is FriendsDataLoadedWithAction && 
+                       state.loadingRequestId == request['id']) {
+              isAccepting = state.actionType == 'accepting';
+              isRejecting = state.actionType == 'rejecting';
+            } else if (state is FriendRequestsLoadedWithAction && 
+                       state.loadingRequestId == request['id']) {
+              isAccepting = state.actionType == 'accepting';
+              isRejecting = state.actionType == 'rejecting';
+            }
+            
+            return ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person)),
+              title: Text(user['name'] ?? user['phoneNumber']),
+              subtitle: Text(user['phoneNumber']),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LoadingIconButtonWidget(
+                    icon: Icons.check,
+                    color: Colors.green,
+                    isLoading: isAccepting,
+                    onPressed: isAccepting || isRejecting ? null : () {
+                      context.read<FriendsBloc>().add(
+                        AcceptFriendRequestEvent(request['id']),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  LoadingIconButtonWidget(
+                    icon: Icons.close,
+                    color: Colors.red,
+                    isLoading: isRejecting,
+                    onPressed: isAccepting || isRejecting ? null : () {
+                      context.read<FriendsBloc>().add(
+                        RejectFriendRequestEvent(request['id']),
+                      );
+                    },
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.red),
-                onPressed: () {
-                  context.read<FriendsBloc>().add(
-                    RejectFriendRequestEvent(request['id']),
-                  );
-                },
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -442,26 +458,21 @@ class _FriendsViewState extends State<FriendsView> with SingleTickerProviderStat
         } else if (state is FriendsDataLoaded) {
           final users = state.users;
           return _buildUsersContent(users, state.isFromCache);
+        } else if (state is FriendsDataLoadedWithAction) {
+          final users = state.users;
+          return _buildUsersContent(users, state.isFromCache);
         } else if (state is UsersLoaded) {
           final users = state.users;
           return _buildUsersContent(users, state.isFromCache);
+        } else if (state is UsersLoadedWithAction) {
+          final users = state.users;
+          return _buildUsersContent(users, state.isFromCache);
         } else if (state is FriendsError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('Error: ${state.message}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<FriendsBloc>().add(LoadUsersEvent());
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+          return ErrorRetryWidget(
+            message: state.message,
+            onRetry: () {
+              context.read<FriendsBloc>().add(LoadUsersEvent());
+            },
           );
         }
         return const Center(
@@ -573,13 +584,34 @@ class _FriendsViewState extends State<FriendsView> with SingleTickerProviderStat
         ),
       );
     } else {
-      return ElevatedButton(
-        onPressed: () {
-          context.read<FriendsBloc>().add(
-            SendFriendRequestEvent(user['uid']),
+      return BlocBuilder<FriendsBloc, FriendsState>(
+        builder: (context, state) {
+          bool isSending = false;
+          
+          if (state is FriendRequestSending && state.userId == user['uid']) {
+            isSending = true;
+          } else if (state is FriendsDataLoadedWithAction && 
+                     state.loadingUserId == user['uid'] && 
+                     state.actionType == 'sending') {
+            isSending = true;
+          } else if (state is UsersLoadedWithAction && 
+                     state.loadingUserId == user['uid'] && 
+                     state.actionType == 'sending') {
+            isSending = true;
+          }
+          
+          return LoadingButtonWidget(
+            text: 'Send Request',
+            isLoading: isSending,
+            onPressed: isSending ? null : () {
+              context.read<FriendsBloc>().add(
+                SendFriendRequestEvent(user['uid']),
+              );
+            },
+            width: 120,
+            height: 36,
           );
         },
-        child: const Text('Send Request'),
       );
     }
   }

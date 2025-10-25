@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/friends_bloc.dart';
+import '../widgets/loading_button_widget.dart';
+import '../widgets/error_retry_widget.dart';
 
 class AllUsersView extends StatefulWidget {
   const AllUsersView({super.key});
@@ -73,33 +75,96 @@ class _AllUsersViewState extends State<AllUsersView> {
                       ),
                       title: Text(user['name'] ?? user['phoneNumber']),
                       subtitle: Text(user['phoneNumber']),
-                      trailing: ElevatedButton(
-                        onPressed: () {
-                          context.read<FriendsBloc>().add(
-                            SendFriendRequestEvent(user['uid']),
+                      trailing: BlocBuilder<FriendsBloc, FriendsState>(
+                        builder: (context, state) {
+                          bool isSending = false;
+                          
+                          // Check for loading states in different state types
+                          if (state is FriendRequestSending && state.userId == user['uid']) {
+                            isSending = true;
+                          } else if (state is UsersLoadedWithAction && 
+                                     state.loadingUserId == user['uid'] && 
+                                     state.actionType == 'sending') {
+                            isSending = true;
+                          }
+                          
+                          return LoadingButtonWidget(
+                            text: 'Add Friend',
+                            isLoading: isSending,
+                            onPressed: isSending ? null : () {
+                              context.read<FriendsBloc>().add(
+                                SendFriendRequestEvent(user['uid']),
+                              );
+                            },
+                            width: 100,
+                            height: 36,
                           );
                         },
-                        child: const Text('Add Friend'),
+                      ),
+                    );
+                  },
+                ),
+              );
+            } else if (state is UsersLoadedWithAction) {
+              final users = state.users;
+              if (users.isEmpty) {
+                return const Center(child: Text('No users found'));
+              }
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<FriendsBloc>().add(LoadUsersEvent());
+                },
+                child: ListView.builder(
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: user['profileImage'] != null
+                            ? NetworkImage(user['profileImage'])
+                            : null,
+                        child: user['profileImage'] == null
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      title: Text(user['name'] ?? user['phoneNumber']),
+                      subtitle: Text(user['phoneNumber']),
+                      trailing: BlocBuilder<FriendsBloc, FriendsState>(
+                        builder: (context, state) {
+                          bool isSending = false;
+                          
+                          // Check for loading states in different state types
+                          if (state is FriendRequestSending && state.userId == user['uid']) {
+                            isSending = true;
+                          } else if (state is UsersLoadedWithAction && 
+                                     state.loadingUserId == user['uid'] && 
+                                     state.actionType == 'sending') {
+                            isSending = true;
+                          }
+                          
+                          return LoadingButtonWidget(
+                            text: 'Add Friend',
+                            isLoading: isSending,
+                            onPressed: isSending ? null : () {
+                              context.read<FriendsBloc>().add(
+                                SendFriendRequestEvent(user['uid']),
+                              );
+                            },
+                            width: 100,
+                            height: 36,
+                          );
+                        },
                       ),
                     );
                   },
                 ),
               );
             } else if (state is FriendsError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Error: ${state.message}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<FriendsBloc>().add(LoadUsersEvent());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+              return ErrorRetryWidget(
+                message: state.message,
+                onRetry: () {
+                  context.read<FriendsBloc>().add(LoadUsersEvent());
+                },
               );
             }
             return Center(
